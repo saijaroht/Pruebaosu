@@ -165,7 +165,7 @@
 
         const $tbody = $('#tablaDatos tbody').empty();
         datos.forEach((objeto, index) => {
-          const $fila = $(`<tr>${fields.map(campo => `<td>${objeto[campo]}</td>`).join('')}<td><button class="btn btn-info btn-sm editButton" data-index="${index}">Editar</button></td></tr>`);
+          const $fila = $(`<tr>${fields.map(campo => `<td>${escapeHtml(objeto[campo] || '')}</td>`).join('')}<td><button class="btn btn-info btn-sm editButton" data-index="${index}">Editar</button></td></tr>`);
           $tbody.append($fila);
         });
 
@@ -255,7 +255,7 @@
           const columnaIndex = fields.indexOf(campoSeleccionado);
           if (columnaIndex >= 0) {
             const valorEscapado = valorSeleccionado.replace(/([.*+?^${}()|[\]\\])/g, '\\$1');
-            table.column(columnaIndex).search(`^${valorEscapado}$`, true, false);
+            table.column(columnaIndex).search(`^${valorEscapado}$`, true, false).draw();
           }
 
           filterRows.push({ campo: campoSeleccionado, valor: valorSeleccionado });
@@ -307,6 +307,18 @@
         table.draw();
       });
 
+      function escapeHtml(unsafe) {
+        if (typeof unsafe !== 'string') {
+          return unsafe || ''; // Si es undefined o null, devolver una cadena vacía
+        }
+        return unsafe
+          .replace(/&/g, "&amp;")
+          .replace(/</g, "&lt;")
+          .replace(/>/g, "&gt;")
+          .replace(/"/g, "&quot;")
+          .replace(/'/g, "&#039;");
+      }
+
       // Manejar el clic en el botón de editar
       $(document).on('click', '.editButton', function () {
         const index = $(this).data('index');
@@ -317,7 +329,7 @@
           $formFields.append(`
             <div class="mb-3">
               <label for="${campo}" class="form-label">${campo}</label>
-              <input type="text" class="form-control" id="${campo}" value="${registro[campo]}">
+              <input type="text" class="form-control" id="${campo}" value="${escapeHtml(registro[campo])}">
             </div>
           `);
         });
