@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Tabla de datos JSON dinámica y filtrable</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.2.3/dist/css/bootstrap.min.css">
+</head>
+<body>
+    <input type="file" id="fileInput">
+    <button onclick="leerArchivo()">Cargar Archivo</button>
+    <input type="text" id="filtro" placeholder="Filtrar...">
+    <table id="tablaDatos" class="table table-striped">
+        <thead>
+        </thead>
+        <tbody>
+        </tbody>
+    </table>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.2.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        function leerArchivo() {
+            const fileInput = document.getElementById('fileInput');
+            const file = fileInput.files[0];
+            const tablaHead = document.querySelector('#tablaDatos thead');
+            const tablaBody = document.querySelector('#tablaDatos tbody');
+            const filtroInput = document.getElementById('filtro');
+
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                const contenido = e.target.result;
+                const datosJSON = JSON.parse(contenido);
+
+                // Limpiar la tabla antes de rellenarla
+                tablaHead.innerHTML = '';
+                tablaBody.innerHTML = '';
+
+                // Obtener los nombres de los campos del primer objeto
+                const campos = Object.keys(datosJSON[0]);
+
+                // Crear los encabezados de la tabla
+                const filaEncabezados = document.createElement('tr');
+                campos.forEach(campo => {
+                    const th = document.createElement('th');
+                    th.textContent = campo;
+                    filaEncabezados.appendChild(th);
+                });
+                tablaHead.appendChild(filaEncabezados);
+
+                // Crear las filas de la tabla
+                datosJSON.forEach(objeto => {
+                    const fila = document.createElement('tr');
+                    campos.forEach(campo => {
+                        const celda = document.createElement('td');
+                        celda.textContent = objeto[campo];
+                        fila.appendChild(celda);
+                    });
+                    tablaBody.appendChild(fila);
+                });
+
+                // Agregar evento de filtrado
+                filtroInput.addEventListener('input', () => {
+                    const filtro = filtroInput.value.toLowerCase();
+                    const filas = tablaBody.querySelectorAll('tr');
+
+                    filas.forEach(fila => {
+                        const celdas = fila.querySelectorAll('td');
+                        let mostrar = false;
+                        celdas.forEach(celda => {
+                            if (celda.textContent.toLowerCase().includes(filtro)) {
+                                mostrar = true;
+                            }
+                        });
+                        fila.style.display = mostrar ? '' : 'none';
+                    });
+                });
+            };
+
+            reader.readAsText(file);
+        }
+    </script>
+</body>
+</html>

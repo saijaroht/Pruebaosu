@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Convertir Excel a JSON</title>
+    <!-- Agregar Bootstrap -->
+    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
+    <!-- Estilos personalizados -->
+    <style>
+        .container {
+            margin-top: 30px;
+        }
+        .output {
+            margin-top: 20px;
+        }
+        .alert {
+            display: none;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1 class="text-center">Convertir Excel a JSON</h1>
+        <div class="form-group">
+            <input type="file" id="fileInput" class="form-control" />
+        </div>
+        <button class="btn btn-primary" id="convertButton">Convertir a JSON</button>
+        <button class="btn btn-success" id="downloadButton" style="display: none;">Descargar JSON</button>
+        <div class="output">
+            <h3>Resultado:</h3>
+            <textarea id="output" class="form-control" rows="10" readonly></textarea>
+        </div>
+        <div class="alert alert-warning" id="noDataAlert">No se encontraron datos en el archivo Excel.</div>
+    </div>
+
+    <!-- Agregar bibliotecas JavaScript -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.17.1/xlsx.full.min.js"></script>
+    <script>
+        document.getElementById('convertButton').addEventListener('click', function () {
+            const fileInput = document.getElementById('fileInput');
+            const file = fileInput.files[0];
+            const outputTextarea = document.getElementById('output');
+            const downloadButton = document.getElementById('downloadButton');
+            const noDataAlert = document.getElementById('noDataAlert');
+
+            if (!file) {
+                alert('Por favor, selecciona un archivo Excel.');
+                return;
+            }
+
+            const reader = new FileReader();
+
+            reader.onload = function (e) {
+                const data = new Uint8Array(e.target.result);
+                const workbook = XLSX.read(data, { type: 'array' });
+
+                // Asumiendo que solo hay una hoja
+                const sheetName = workbook.SheetNames[0];
+                const worksheet = workbook.Sheets[sheetName];
+                const json = XLSX.utils.sheet_to_json(worksheet, { header: 1 }); // header: 1 para obtener las filas como arrays
+
+                // Obtener las cabeceras
+                const headers = json[0] || [];
+                const dataRows = json.slice(1);
+
+                if (headers.length === 0 || dataRows.length === 0) {
+                    // Mostrar mensaje de alerta si no hay datos
+                    outputTextarea.value = '';
+                    downloadButton.style.display = 'none';
+                    noDataAlert.style.display = 'block';
+                    return;
+                }
+
+                noDataAlert.style.display = 'none';
+
+                // Convertir datos
+                const convertedData = dataRows.map(row => {
+                    const convertedRow = {};
+                    headers.forEach((header, index) => {
+                        let value = row[index];
+                        if (header.toLowerCase().includes('fecha') && value) {
+                            value = convertExcelDate(value);
+                        }
+                        convertedRow[header] = value;
+                    });
+                    return convertedRow;
+                });
+
+                // Mostrar JSON en el textarea
+                const jsonString = JSON.stringify(convertedData, null, 2);
+                outputTextarea.value = jsonString;
+
+                // Mostrar el botón de descarga
+                downloadButton.style.display = 'block';
+
+                // Configurar la descarga del archivo
+                downloadButton.addEventListener('click', function () {
+                    const blob = new Blob([jsonString], { type: 'text/plain;charset=utf-8' });
+                    const url = URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.download = 'data.txt';
+                    document.body.appendChild(a);
+                    a.click();
+                    document.body.removeChild(a);
+                    URL.revokeObjectURL(url);
+                });
+            };
+
+            reader.readAsArrayBuffer(file);
+        });
+
+        function convertExcelDate(value) {
+            // Si el valor es un número, intenta convertirlo a una fecha de Excel
+            let date = new Date();
+            if (typeof value === 'number') {
+                // Excel considera el 1 de enero de 1900 como el día 1
+                const excelEpoch = new Date(Date.UTC(1899, 11, 30));
+                date = new Date(excelEpoch.getTime() + value * 86400000);
+            } else {
+                // Si no es un número, intenta convertirlo como una fecha estándar
+                date = new Date(value);
+            }
+            if (isNaN(date.getTime())) {
+                return value; // Devuelve el valor original si no es una fecha válida
+            }
+            return `${pad(date.getDate())}/${pad(date.getMonth() + 1)}/${date.getFullYear()}`;
+        }
+
+        function pad(number) {
+            return number < 10 ? '0' + number : number;
+        }
+    </script>
+</body>
+</html>

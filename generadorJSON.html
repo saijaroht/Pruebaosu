@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Generador de JSON Aleatorio</title>
+    <script>
+        function generarJSON() {
+  // Definimos un arreglo para almacenar los objetos JSON
+  const datos = [];
+
+  // Función para generar un objeto aleatorio (puedes personalizarla)
+  function generarObjetoAleatorio() {
+    return {
+      id: Math.floor(Math.random() * 10000),
+      nombre: generarNombreAleatorio(), // Función para generar nombres aleatorios
+      edad: Math.floor(Math.random() * 100),
+      ciudad: generarCiudadAleatoria(), // Función para generar ciudades aleatorias
+      // ... otros campos que desees
+    };
+  }
+
+  // Función para generar nombres aleatorios (ejemplo básico)
+  function generarNombreAleatorio() {
+    const nombres = ['Juan', 'María', 'Pedro', 'Ana', 'Luis'];
+    const apellidos = ['Pérez', 'García', 'González', 'Rodríguez', 'López'];
+    return nombres[Math.floor(Math.random() * nombres.length)] + ' ' + apellidos[Math.floor(Math.random() * apellidos.length)];
+  }
+
+  // Función para generar ciudades aleatorias (ejemplo básico)
+  function generarCiudadAleatoria() {
+    const ciudades = ['Madrid', 'Barcelona', 'Roma', 'París', 'Londres'];
+    return ciudades[Math.floor(Math.random() * ciudades.length)];
+  }
+
+  // Generamos 1000 objetos aleatorios
+  for (let i = 0; i < 10000; i++) {
+    datos.push(generarObjetoAleatorio());
+  }
+
+  // Convertimos los datos a formato JSON
+  const json = JSON.stringify(datos, null, 2);
+
+  // Creamos un enlace para descargar el archivo
+  const elemento = document.createElement('a');
+  elemento.setAttribute('href', 'data:text/plain;charset=utf-8,' + encodeURIComponent(json));
+  elemento.setAttribute('download', 'datos.json');
+  elemento.style.display = 'none';
+  document.body.appendChild(elemento);
+
+  // Simulamos un clic en el enlace para iniciar la descarga
+  elemento.click();
+}
+
+    </script>
+</head>
+<body>
+    <button onclick="generarJSON()">Generar JSON</button>
+    
+</body>
+</html>

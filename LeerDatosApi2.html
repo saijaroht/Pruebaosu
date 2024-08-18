@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Visualizador de Datos de API</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.2.3/dist/css/bootstrap.min.css">
+  <style>
+    .collapse-content {
+      padding: 0.5rem;
+      border: 1px solid #dee2e6;
+      margin-top: 0.5rem;
+    }
+    .btn-collapse {
+      text-align: left;
+    }
+  </style>
+</head>
+<body>
+  <div class="container mt-4">
+    <input type="text" id="apiUrl" class="form-control mb-3" placeholder="Ingrese la URL de la API">
+    <button class="btn btn-primary" onclick="fetchData()">Obtener Datos</button>
+    <input type="text" id="searchInput" class="form-control mb-3 mt-3" placeholder="Filtrar datos...">
+    <table class="table table-striped" id="dataTable">
+      <thead></thead>
+      <tbody></tbody>
+    </table>
+  </div>
+
+  <script>
+    const apiUrlInput = document.getElementById('apiUrl');
+    const searchInput = document.getElementById('searchInput');
+    const dataTable = document.getElementById('dataTable');
+
+    let allData = [];
+
+    function fetchData() {
+      const apiUrl = apiUrlInput.value;
+      fetch(apiUrl)
+        .then(response => response.json())
+        .then(data => {
+          allData = data;
+          createTable(data);
+        })
+        .catch(error => {
+          console.error('Error:', error);
+          alert('Error al obtener los datos. Verifica la URL de la API y la estructura de los datos.');
+        });
+    }
+
+    function createTable(data) {
+      // Limpiar tabla antes de cargar nuevos datos
+      dataTable.querySelector('tbody').innerHTML = '';
+      dataTable.querySelector('thead').innerHTML = '';
+
+      // Obtener los encabezados y crear la tabla
+      const headers = Object.keys(data[0]);
+      const thead = dataTable.querySelector('thead');
+      const tr = document.createElement('tr');
+      headers.forEach(header => {
+        const th = document.createElement('th');
+        th.textContent = header;
+        tr.appendChild(th);
+      });
+      thead.appendChild(tr);
+
+      // Crear las filas de la tabla
+      const tbody = dataTable.querySelector('tbody');
+      data.forEach(item => {
+        createRow(item, tbody);
+      });
+
+      // Configurar el filtro
+      searchInput.addEventListener('input', (event) => filterData(event.target.value));
+    }
+
+    function createRow(item, parent) {
+      const tr = document.createElement('tr');
+      Object.keys(item).forEach(key => {
+        const td = document.createElement('td');
+        const value = item[key];
+
+        if (Array.isArray(value) || typeof value === 'object') {
+          const collapseId = 'collapse' + Math.random().toString(36).substr(2, 9);
+          const button = document.createElement('button');
+          button.classList.add('btn', 'btn-secondary', 'w-100', 'text-start', 'btn-collapse');
+          button.setAttribute('data-bs-toggle', 'collapse');
+          button.setAttribute('data-bs-target', `#${collapseId}`);
+          button.textContent = `Ver ${key} (${Array.isArray(value) ? value.length : Object.keys(value).length})`;
+
+          const collapseDiv = document.createElement('div');
+          collapseDiv.classList.add('collapse', 'collapse-content');
+          collapseDiv.id = collapseId;
+
+          // Crear tabla para el contenido colapsado
+          const innerTable = document.createElement('table');
+          innerTable.classList.add('table', 'table-sm');
+          const innerTbody = document.createElement('tbody');
+          if (Array.isArray(value)) {
+            value.forEach(subItem => createRow(subItem, innerTbody));
+          } else {
+            createRow(value, innerTbody);
+          }
+          innerTable.appendChild(innerTbody);
+          collapseDiv.appendChild(innerTable);
+
+          td.appendChild(button);
+          td.appendChild(collapseDiv);
+
+          // Inicialmente colapsado si hay datos
+          if ((Array.isArray(value) && value.length > 0) || (typeof value === 'object' && Object.keys(value).length > 0)) {
+            // Inicialmente colapsado
+            collapseDiv.classList.remove('show');
+          }
+        } else {
+          td.textContent = value;
+        }
+        tr.appendChild(td);
+      });
+      parent.appendChild(tr);
+    }
+
+    function filterData(query) {
+      const filteredData = allData.filter(item => {
+        return Object.values(item).some(value =>
+          value.toString().toLowerCase().includes(query.toLowerCase())
+        );
+      });
+      createTable(filteredData);
+    }
+  </script>
+  <script src="https://cdn.jsdelivr.net/npm/@popperjs/core@2.11.6/dist/umd/popper.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.2.3/dist/js/bootstrap.min.js"></script>
+</body>
+</html>

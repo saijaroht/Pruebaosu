@@ -1,0 +1,294 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Tabla de Datos Dinámica y Filtrable</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.2.3/dist/css/bootstrap.min.css">
+  <link rel="stylesheet" href="https://cdn.datatables.net/1.13.4/css/jquery.dataTables.min.css">
+  <style>
+    body {
+      background-color: #f8f9fa;
+    }
+
+    .container {
+      margin-top: 30px;
+      max-width: 1200px;
+    }
+
+    h1 {
+      margin-bottom: 20px;
+      color: #343a40;
+    }
+
+    .filter-container {
+      margin-bottom: 20px;
+      padding: 15px;
+      background-color: #ffffff;
+      border-radius: 5px;
+      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    }
+
+    .filter-row {
+      margin-bottom: 10px;
+    }
+
+    .remove-filter-button,
+    .filtrarButton,
+    .removeButton {
+      margin-top: 5px;
+    }
+
+    .remove-filter-button {
+      background-color: #dc3545;
+      color: #fff;
+      border: none;
+    }
+
+    .remove-filter-button:hover {
+      background-color: #c82333;
+    }
+
+    .filtrarButton {
+      background-color: #007bff;
+      color: #fff;
+      border: none;
+    }
+
+    .filtrarButton:hover {
+      background-color: #0056b3;
+    }
+
+    .removeButton {
+      background-color: #6c757d;
+      color: #fff;
+      border: none;
+    }
+
+    .removeButton:hover {
+      background-color: #5a6268;
+    }
+
+    .table thead th {
+      background-color: #007bff;
+      color: #fff;
+    }
+
+    .dataTables_wrapper .dataTables_paginate {
+      display: flex;
+      justify-content: center;
+      margin-top: 10px;
+    }
+
+    .dataTables_wrapper .dataTables_info {
+      margin-top: 10px;
+    }
+  </style>
+</head>
+
+<body>
+  <div class="container">
+    <h1>Tabla de Datos JSON Dinámica y Filtrable</h1>
+    <div class="mb-3">
+      <input type="file" id="fileInput" class="form-control" />
+    </div>
+
+    <!-- Contenedor de filtros -->
+    <div id="filtrosContainer" class="filter-container">
+      <div class="row filter-row">
+        <div class="col-md-5">
+          <select class="campoSelect form-control">
+            <option value="">Seleccionar Campo</option>
+          </select>
+        </div>
+        <div class="col-md-5">
+          <select class="valorSelect form-control">
+            <option value="">Seleccionar Valor</option>
+          </select>
+        </div>
+        <div class="col-md-2">
+          <button class="filtrarButton btn btn-primary w-100">Filtrar</button>
+        </div>
+      </div>
+    </div>
+
+    <table id="tablaDatos" class="display table table-striped table-bordered" style="width:100%">
+      <thead></thead>
+      <tbody></tbody>
+    </table>
+  </div>
+
+  <script src="https://code.jquery.com/jquery-3.6.4.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.2.3/dist/js/bootstrap.bundle.min.js"></script>
+  <script src="https://cdn.datatables.net/1.13.4/js/jquery.dataTables.min.js"></script>
+  <script>
+    $(document).ready(function () {
+      let table;
+      let datosJSON = [];
+      let fields = [];
+      let filterRows = [];
+
+      function cargarDatos(datos) {
+        datosJSON = datos;
+        fields = Object.keys(datos[0]);
+
+        if (table) {
+          table.destroy();
+        }
+
+        const $thead = $('#tablaDatos thead').empty();
+        const $filaEncabezados = $('<tr></tr>');
+        fields.forEach(campo => {
+          $filaEncabezados.append(`<th>${campo}</th>`);
+        });
+        $thead.append($filaEncabezados);
+
+        const $tbody = $('#tablaDatos tbody').empty();
+        datos.forEach(objeto => {
+          const $fila = $(`<tr>${fields.map(campo => `<td>${objeto[campo]}</td>`).join('')}</tr>`);
+          $tbody.append($fila);
+        });
+
+        table = $('#tablaDatos').DataTable({
+          paging: true,
+          pagingType: 'full_numbers',
+          lengthChange: true,
+          pageLength: 10, // Número de registros por página
+          language: {
+            search: "Buscar:",
+            lengthMenu: "Mostrar _MENU_ registros por página",
+            info: "Mostrando página _PAGE_ de _PAGES_",
+            infoEmpty: "No hay registros disponibles",
+            infoFiltered: "(filtrado de _MAX_ registros totales)",
+            paginate: {
+              first: "Primera",
+              last: "Última",
+              next: "Siguiente",
+              previous: "Anterior"
+            }
+          }
+        });
+
+        const $campoSelect = $('#filtrosContainer .campoSelect').empty().append('<option value="">Seleccionar Campo</option>');
+        fields.forEach(campo => {
+          $campoSelect.append(`<option value="${campo}">${campo}</option>`);
+        });
+
+        $('#filtrosContainer .valorSelect').empty().append('<option value="">Seleccionar Valor</option>');
+      }
+
+      $('#fileInput').on('change', function () {
+        const file = this.files[0];
+        const reader = new FileReader();
+
+        reader.onload = function (e) {
+          const datos = JSON.parse(e.target.result);
+          cargarDatos(datos);
+        };
+
+        reader.readAsText(file);
+      });
+
+      function actualizarValoresUnicos(selectCampo, selectValor, filtrosAplicados) {
+        const campoSeleccionado = selectCampo.val();
+        selectValor.empty().append('<option value="">Seleccionar Valor</option>');
+
+        if (campoSeleccionado) {
+          const datosFiltrados = datosJSON.filter(item => {
+            return filtrosAplicados.every(filtro => item[filtro.campo] == filtro.valor);
+          });
+
+          const valoresUnicos = [...new Set(datosFiltrados.map(item => item[campoSeleccionado]))];
+
+          const esNumero = valoresUnicos.every(valor => !isNaN(parseFloat(valor)));
+          const esFecha = valoresUnicos.every(valor => !isNaN(Date.parse(valor)));
+
+          if (esNumero) {
+            valoresUnicos.sort((a, b) => parseFloat(a) - parseFloat(b));
+          } else if (esFecha) {
+            valoresUnicos.sort((a, b) => new Date(a) - new Date(b));
+          } else {
+            valoresUnicos.sort((a, b) => a.localeCompare(b));
+          }
+
+          valoresUnicos.forEach(valor => {
+            selectValor.append(`<option value="${valor}">${valor}</option>`);
+          });
+        }
+      }
+
+      $(document).on('change', '.campoSelect', function () {
+        const selectCampo = $(this);
+        const selectValor = selectCampo.closest('.filter-row').find('.valorSelect');
+        const filtrosAplicados = filterRows.map(filtro => ({ campo: filtro.campo, valor: filtro.valor }));
+        actualizarValoresUnicos(selectCampo, selectValor, filtrosAplicados);
+      });
+
+      $(document).on('click', '.filtrarButton', function () {
+        const filtroRow = $(this).closest('.filter-row');
+        const selectCampo = filtroRow.find('.campoSelect');
+        const campoSeleccionado = selectCampo.val();
+        const selectValor = filtroRow.find('.valorSelect');
+        const valorSeleccionado = selectValor.val();
+
+        if (campoSeleccionado && valorSeleccionado) {
+          const columnaIndex = fields.indexOf(campoSeleccionado);
+          if (columnaIndex >= 0) {
+            const valorEscapado = valorSeleccionado.replace(/([.*+?^${}()|[\]\\])/g, '\\$1');
+            table.column(columnaIndex).search(`^${valorEscapado}$`, true, false);
+          }
+
+          filterRows.push({ campo: campoSeleccionado, valor: valorSeleccionado });
+
+          const nuevaFila = $('<div class="row filter-row"></div>');
+          const nuevoCampoSelect = $('<select class="campoSelect form-control"><option value="">Seleccionar Campo</option></select>');
+          const nuevoValorSelect = $('<select class="valorSelect form-control"><option value="">Seleccionar Valor</option></select>');
+          const nuevoBotonFiltrar = $('<button class="filtrarButton btn btn-primary w-100">Filtrar</button>');
+          const nuevoBotonEliminar = $('<button class="removeButton btn btn-danger w-100">Eliminar Filtro</button>');
+
+          fields.forEach(campo => {
+            nuevoCampoSelect.append(`<option value="${campo}">${campo}</option>`);
+          });
+
+          nuevaFila.append($('<div class="col-md-5"></div>').append(nuevoCampoSelect));
+          nuevaFila.append($('<div class="col-md-5"></div>').append(nuevoValorSelect));
+          nuevaFila.append($('<div class="col-md-1"></div>').append(nuevoBotonFiltrar));
+          nuevaFila.append($('<div class="col-md-1"></div>').append(nuevoBotonEliminar));
+          $('#filtrosContainer').append(nuevaFila);
+
+          const filtrosAplicados = filterRows.map(filtro => ({ campo: filtro.campo, valor: filtro.valor }));
+          actualizarValoresUnicos(nuevoCampoSelect, nuevoValorSelect, filtrosAplicados);
+
+          filterRows.forEach(filtro => {
+            nuevoCampoSelect.find(`option[value="${filtro.campo}"]`).remove();
+          });
+
+          table.draw();
+        } else {
+          table.columns().search('').draw();
+        }
+      });
+
+      $(document).on('click', '.removeButton', function () {
+        const filtroRow = $(this).closest('.filter-row');
+        const campoSeleccionado = filtroRow.find('.campoSelect').val();
+
+        filterRows = filterRows.filter(filtro => filtro.campo !== campoSeleccionado);
+        filtroRow.remove();
+
+        table.columns().search('').draw();
+        filterRows.forEach(filtro => {
+          const columnIndex = fields.indexOf(filtro.campo);
+          if (columnIndex >= 0) {
+            const valorEscapado = filtro.valor.replace(/([.*+?^${}()|[\]\\])/g, '\\$1');
+            table.column(columnIndex).search(`^${valorEscapado}$`, true, false);
+          }
+        });
+        table.draw();
+      });
+    });
+  </script>
+</body>
+
+</html>

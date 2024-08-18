@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Leer archivo JSON y mostrar en formulario</title>
+</head>
+<body>
+    <form id="myForm">
+        <label for="nombre">Nombre:</label>
+        <input type="text" id="nombre" name="nombre" disabled><br><br> <label for="apellido">Apellido:</label>
+        <input type="text" id="apellido" name="apellido" disabled><br><br>
+        <label for="cedula">Cédula:</label>
+        <input type="text" id="cedula" name="cedula" disabled><br><br>
+        <label for="usuario">Usuario:</label>
+        <input type="text" id="usuario" name="usuario" disabled><br><br>
+        <label for="pass">Contraseña:</label>
+        <input type="password" id="pass" name="pass" disabled><br><br>
+        <button type="submit" disabled>Guardar (Deshabilitado)</button> </form>
+    <input type="file" id="fileInput">
+    <button onclick="leerArchivo()">Leer Archivo</button>
+    <div id="resultado"></div>
+
+    <script>
+        function leerArchivo() {
+            const fileInput = document.getElementById('fileInput');
+            const file = fileInput.files[0];
+
+            if (!file) {
+                return; // Handle case where no file is selected
+            }
+
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                const contenido = e.target.result;
+                const datosJSON = JSON.parse(contenido);
+
+                // Display data in form fields (assuming single user data in the file)
+                const nombreInput = document.getElementById('nombre');
+                const apellidoInput = document.getElementById('apellido');
+                const cedulaInput = document.getElementById('cedula');
+                const usuarioInput = document.getElementById('usuario');
+                const passInput = document.getElementById('pass');
+
+                nombreInput.value = datosJSON.nombre || ""; // Set empty value if property doesn't exist
+                apellidoInput.value = datosJSON.apellido || "";
+                cedulaInput.value = datosJSON.cedula || "";
+                usuarioInput.value = datosJSON.usuario || "";
+                passInput.value = ""; // Don't display password for security
+
+                // Optional: Show message in the resultado div
+                const resultadoDiv = document.getElementById('resultado');
+                resultadoDiv.innerHTML = "Datos cargados del archivo";
+            };
+
+            reader.readAsText(file);
+        }
+    </script>
+</body>
+</html>

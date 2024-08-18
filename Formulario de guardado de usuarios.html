@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Formulario con descarga de archivo</title>
+    <script src="https://cdn.jsdelivr.net/npm/file-saver@2.0.5/dist/FileSaver.min.js"></script>
+</head>
+<body>
+    <form id="myForm">
+        <label for="nombre">Nombre:</label>
+        <input type="text" id="nombre" name="nombre"><br><br>
+        <label for="apellido">Apellido:</label>
+        <input type="text" id="apellido" name="apellido"><br><br>
+        <label for="cedula">Cédula:</label>
+        <input type="text" id="cedula" name="cedula"><br><br>
+        <label for="usuario">Usuario:</label>
+        <input type="text" id="usuario" name="usuario"><br><br>
+        <label for="pass">Contraseña:</label>
+        <input type="password" id="pass" name="pass"><br><br>
+        <button type="submit">Guardar</button>
+    </form>
+
+    <script>
+        let consecutivo = 1; // Inicializamos el consecutivo
+
+        document.getElementById('myForm').addEventListener('submit', (event) => {
+            event.preventDefault();
+
+            // Obtener los valores de los campos
+            const nombre = document.getElementById('nombre').value;
+            const apellido = document.getElementById('apellido').value;
+            const cedula = document.getElementById('cedula').value;
+            const usuario = document.getElementById('usuario').value;
+            const pass = document.getElementById('pass').value;
+
+            // Crear el objeto JSON con el consecutivo
+            const nuevoUsuario = {
+                consecutivo: consecutivo++,
+                nombre,
+                apellido,
+                cedula,
+                usuario,
+                pass
+            };
+
+            // Convertir el objeto JSON a una cadena
+            const usuarioJSON = JSON.stringify(nuevoUsuario);
+
+            // Crear un Blob con el contenido JSON
+            const blob = new Blob([usuarioJSON], { type: 'text/plain' });
+
+            // Permitir al usuario descargar el archivo
+            saveAs(blob, "usuarios.txt");
+        });
+    </script>
+</body>
+</html>
