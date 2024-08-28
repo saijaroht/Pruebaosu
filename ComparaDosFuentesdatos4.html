@@ -1,0 +1,394 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Unir Archivos Excel</title>
+    <link href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        body {
+            padding: 20px;
+        }
+        .container {
+            max-width: 800px;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        th, td {
+            padding: 8px;
+            border: 1px solid #ddd;
+            text-align: left;
+        }
+        th {
+            background-color: #f4f4f4;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1 class="my-4">Unir Archivos Excel</h1>
+        <form id="uploadForm">
+            <div class="form-group">
+                <label for="file1">Cargar primer archivo Excel</label>
+                <input type="file" class="form-control-file" id="file1" accept=".xlsx" required>
+            </div>
+            <div class="form-group">
+                <label for="file2">Cargar segundo archivo Excel</label>
+                <input type="file" class="form-control-file" id="file2" accept=".xlsx" required>
+            </div>
+            <button type="button" class="btn btn-primary" id="loadFiles">Cargar Archivos</button>
+        </form>
+        <div id="fieldSelection" class="my-4"></div>
+        <button class="btn btn-info" id="previewData" style="display:none;">Previsualizar Datos</button>
+        <button class="btn btn-success" id="exportData" style="display:none;">Exportar</button>
+        <button class="btn btn-warning" id="showGroups" style="display:none;">Mostrar Agrupaciones</button>
+        <button class="btn btn-secondary" id="groupData" style="display:none;">Agrupar Datos</button>
+        <div id="previewTable" class="my-4"></div>
+        <div id="groupingsList" class="my-4"></div>
+        <div id="groupBy" class="my-4"></div>
+        <div id="previewGrouped" class="my-4"></div>
+    </div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.17.5/xlsx.full.min.js"></script>
+    <script src="https://code.jquery.com/jquery-3.5.1.min.js"></script>
+    <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/js/bootstrap.min.js"></script>
+    <script>
+        let data1 = [];
+        let data2 = [];
+        let mergedData = [];
+        let headers = [];
+        let repeatedFields = [];
+
+        document.getElementById('loadFiles').addEventListener('click', function() {
+            const file1 = document.getElementById('file1').files[0];
+            const file2 = document.getElementById('file2').files[0];
+
+            if (file1 && file2) {
+                Promise.all([readFile(file1), readFile(file2)]).then(([result1, result2]) => {
+                    data1 = result1;
+                    data2 = result2;
+                    processFiles(data1, data2, file1.name, file2.name);
+                    document.getElementById('previewData').style.display = 'inline';
+                }).catch(err => {
+                    console.error('Error al leer archivos:', err);
+                });
+            }
+        });
+
+        function readFile(file) {
+            return new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                reader.onload = function(event) {
+                    const data = new Uint8Array(event.target.result);
+                    const workbook = XLSX.read(data, { type: 'array' });
+                    const sheetNames = workbook.SheetNames;
+                    const sheet = workbook.Sheets[sheetNames[0]];
+                    const jsonData = XLSX.utils.sheet_to_json(sheet);
+                    resolve(jsonData);
+                };
+                reader.onerror = reject;
+                reader.readAsArrayBuffer(file);
+            });
+        }
+
+        function processFiles(data1, data2, fileName1, fileName2) {
+            const fields1 = Object.keys(data1[0] || {});
+            const fields2 = Object.keys(data2[0] || {});
+
+            let fieldListOptions = '<option value="all">Todos los Datos</option>';
+            fields1.forEach(field => {
+                fieldListOptions += `<option value="${field}" data-file="file1">${field} (Archivo: ${fileName1})</option>`;
+            });
+            fields2.forEach(field => {
+                fieldListOptions += `<option value="${field}" data-file="file2">${field} (Archivo: ${fileName2})</option>`;
+            });
+
+            let html = `<h3>Selecciona un campo en común para unir los archivos:</h3>
+                        <div class="form-group">
+                            <label for="field1">Campo en el primer archivo</label>
+                            <select class="form-control" id="field1">`;
+            fields1.forEach(field => {
+                html += `<option value="${field}">${field}</option>`;
+            });
+            html += `</select></div>
+                    <div class="form-group">
+                        <label for="field2">Campo en el segundo archivo</label>
+                        <select class="form-control" id="field2">`;
+            fields2.forEach(field => {
+                html += `<option value="${field}">${field}</option>`;
+            });
+            html += `</select></div>
+                    <div class="form-group">
+                        <label for="fieldList">Campo para la unión</label>
+                        <div class="input-group">
+                            <select class="form-control" id="fieldList">${fieldListOptions}</select>
+                            <div class="input-group-append">
+                                <button class="btn btn-secondary" id="addField">Añadir a Campos a Mostrar</button>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label for="displayFields">Campos a Mostrar</label>
+                        <select class="form-control" id="displayFields" multiple></select>
+                        <button class="btn btn-secondary mt-2" id="removeField">Eliminar Campo Seleccionado</button>
+                    </div>
+                    <div class="form-group">
+                        <label for="joinType">Tipo de unión</label>
+                        <select class="form-control" id="joinType">
+                            <option value="inner">Inner Join</option>
+                            <option value="left">Left Join</option>
+                            <option value="right">Right Join</option>
+                        </select>
+                    </div>
+                    <button class="btn btn-primary" id="mergeData">Unir Datos</button>`;
+
+            document.getElementById('fieldSelection').innerHTML = html;
+
+            document.getElementById('addField').addEventListener('click', function() {
+                const fieldList = document.getElementById('fieldList');
+                const displayFields = document.getElementById('displayFields');
+                const selectedOption = fieldList.options[fieldList.selectedIndex];
+                const fieldValue = selectedOption.value;
+                
+                if (fieldValue === 'all') {
+                    const fieldsToAdd = [...fieldList.options].filter(option => option.value !== 'all').map(option => option.value);
+                    fieldsToAdd.forEach(field => {
+                        if ([...displayFields.options].every(option => option.value !== field)) {
+                            const newOption = new Option(field, field);
+                            displayFields.add(newOption);
+                            [...fieldList.options].forEach(option => {
+                                if (option.value === field) {
+                                    option.remove();
+                                }
+                            });
+                        }
+                    });
+                } else {
+                    if ([...displayFields.options].every(option => option.value !== fieldValue)) {
+                        const newOption = new Option(selectedOption.text, fieldValue);
+                        displayFields.add(newOption);
+                        selectedOption.remove();
+                    }
+                }
+            });
+
+            document.getElementById('removeField').addEventListener('click', function() {
+                const displayFields = document.getElementById('displayFields');
+                const fieldList = document.getElementById('fieldList');
+                const selectedOption = displayFields.options[displayFields.selectedIndex];
+                const fieldValue = selectedOption.value;
+                
+                if (fieldValue) {
+                    selectedOption.remove();
+                    if ([...fieldList.options].every(option => option.value !== fieldValue)) {
+                        const newOption = new Option(selectedOption.text, fieldValue);
+                        fieldList.add(newOption);
+                    }
+                }
+            });
+
+            document.getElementById('mergeData').addEventListener('click', function() {
+                const selectedField1 = document.getElementById('field1').value;
+                const selectedField2 = document.getElementById('field2').value;
+                const joinType = document.getElementById('joinType').value;
+                const displayFields = document.getElementById('displayFields');
+
+                const selectedDisplayFields = [...displayFields.options].map(option => option.value);
+
+                mergedData = mergeData(data1, data2, selectedField1, selectedField2, joinType, selectedDisplayFields);
+                headers = selectedDisplayFields;
+                document.getElementById('previewData').style.display = 'inline';
+            });
+        }
+
+        function mergeData(data1, data2, field1, field2, joinType, displayFields) {
+            const dataMap = new Map();
+            data1.forEach(row => {
+                dataMap.set(row[field1], row);
+            });
+
+            const merged = [];
+            data2.forEach(row => {
+                const key = row[field2];
+                if (joinType === 'inner') {
+                    if (dataMap.has(key)) {
+                        merged.push({ ...dataMap.get(key), ...row });
+                    }
+                } else if (joinType === 'left') {
+                    merged.push({ ...dataMap.get(key), ...row });
+                } else if (joinType === 'right') {
+                    const baseData = dataMap.get(key) || {};
+                    merged.push({ ...baseData, ...row });
+                }
+            });
+
+            if (joinType === 'left') {
+                data1.forEach(row => {
+                    if (!data2.some(r => r[field2] === row[field1])) {
+                        merged.push(row);
+                    }
+                });
+            }
+
+            return merged.map(row => {
+                return displayFields.reduce((acc, field) => {
+                    if (row.hasOwnProperty(field)) {
+                        acc[field] = row[field];
+                    }
+                    return acc;
+                }, {});
+            });
+        }
+
+        function generateExcel(data, headers) {
+            const ws = XLSX.utils.json_to_sheet(data, { header: headers });
+            const wb = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(wb, ws, 'Merged Data');
+
+            const wbout = XLSX.write(wb, { bookType: 'xlsx', type: 'array' });
+            const blob = new Blob([wbout], { type: 'application/octet-stream' });
+            const link = document.createElement('a');
+            link.href = URL.createObjectURL(blob);
+            link.download = 'merged_data.xlsx';
+            link.click();
+
+            document.getElementById('exportData').style.display = 'none';
+        }
+
+        function showPreview(data, headers) {
+            const table = document.createElement('table');
+            const thead = document.createElement('thead');
+            const tbody = document.createElement('tbody');
+
+            const headerRow = document.createElement('tr');
+            headers.forEach(header => {
+                const th = document.createElement('th');
+                th.textContent = header;
+                headerRow.appendChild(th);
+            });
+            thead.appendChild(headerRow);
+
+            data.forEach(row => {
+                const tr = document.createElement('tr');
+                headers.forEach(header => {
+                    const td = document.createElement('td');
+                    td.textContent = row[header] || '';
+                    tr.appendChild(td);
+                });
+                tbody.appendChild(tr);
+            });
+
+            table.appendChild(thead);
+            table.appendChild(tbody);
+
+            const previewDiv = document.getElementById('previewTable');
+            previewDiv.innerHTML = '';
+            previewDiv.appendChild(table);
+        }
+
+        function showGroupings(data) {
+            const fieldValues = {};
+            const valueCounts = {};
+
+            headers.forEach(header => {
+                fieldValues[header] = [];
+                valueCounts[header] = {};
+            });
+
+            data.forEach(row => {
+                headers.forEach(header => {
+                    const value = row[header];
+                    if (value !== undefined && value !== null) {
+                        fieldValues[header].push(value);
+                        valueCounts[header][value] = (valueCounts[header][value] || 0) + 1;
+                    }
+                });
+            });
+
+            repeatedFields = Object.keys(valueCounts).filter(header => {
+                return Object.values(valueCounts[header]).some(count => count > 1);
+            });
+
+            const listDiv = document.getElementById('groupingsList');
+            listDiv.innerHTML = '<h3>Campos con valores repetidos:</h3>';
+
+            repeatedFields.forEach(field => {
+                const repeatedValues = Object.entries(valueCounts[field]).filter(([value, count]) => count > 1);
+                const ul = document.createElement('ul');
+                ul.innerHTML = `<strong>${field}:</strong>`;
+                repeatedValues.forEach(([value, count]) => {
+                    const li = document.createElement('li');
+                    li.textContent = `${value} (Repeticiones: ${count})`;
+                    ul.appendChild(li);
+                });
+                listDiv.appendChild(ul);
+            });
+
+            // Populate dropdown for grouping
+            const groupBySelect = document.createElement('select');
+            groupBySelect.classList.add('form-control');
+            groupBySelect.id = 'groupBySelect';
+            groupBySelect.innerHTML = '<option value="">Selecciona un campo para agrupar</option>';
+            repeatedFields.forEach(field => {
+                const option = document.createElement('option');
+                option.value = field;
+                option.textContent = field;
+                groupBySelect.appendChild(option);
+            });
+
+            const groupByDiv = document.getElementById('groupBy');
+            groupByDiv.innerHTML = '<h3>Agrupar Datos</h3>';
+            groupByDiv.appendChild(groupBySelect);
+            groupByDiv.innerHTML += '<button class="btn btn-primary mt-2" id="previewGrouped">Previsualizar Agrupaciones</button>';
+        }
+
+        function showGroupedPreview(data, groupByField) {
+            const groupedData = data.reduce((acc, row) => {
+                const key = row[groupByField];
+                if (!acc[key]) {
+                    acc[key] = { ...row };
+                } else {
+                    Object.keys(row).forEach(field => {
+                        if (field !== groupByField && field.includes('Valor')) {
+                            acc[key][field] = (acc[key][field] || 0) + (parseFloat(row[field]) || 0);
+                        }
+                    });
+                }
+                return acc;
+            }, {});
+
+            const groupedArray = Object.values(groupedData);
+            const headers = Object.keys(groupedArray[0] || {});
+            showPreview(groupedArray, headers);
+        }
+
+        document.getElementById('previewData').addEventListener('click', function() {
+            showPreview(mergedData, headers);
+            document.getElementById('exportData').style.display = 'inline';
+            document.getElementById('showGroups').style.display = 'inline';
+        });
+
+        document.getElementById('exportData').addEventListener('click', function() {
+            generateExcel(mergedData, headers);
+        });
+
+        document.getElementById('showGroups').addEventListener('click', function() {
+            showGroupings(mergedData);
+            document.getElementById('groupData').style.display = 'inline';
+        });
+
+        document.getElementById('groupData').addEventListener('click', function() {
+            document.getElementById('previewGrouped').style.display = 'inline';
+        });
+
+        document.getElementById('previewGrouped').addEventListener('click', function() {
+            const groupByField = document.getElementById('groupBySelect').value;
+            if (groupByField) {
+                showGroupedPreview(mergedData, groupByField);
+            }
+        });
+    </script>
+</body>
+</html>
